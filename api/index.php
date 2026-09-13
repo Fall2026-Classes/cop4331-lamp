@@ -94,14 +94,10 @@ switch ($method) {
         }
 
         // List all colors
-        $stmt = $db->prepare('SELECT ID as id, Name as name FROM Contacts WHERE UserID = :uid ORDER BY Name');
+        $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid ORDER BY LastName, FirstName');
         $stmt->execute([':uid' => $userId]);
         $rows = $stmt->fetchAll();
-        $results = array_column($rows, 'name');
-        if (empty($results)) {
-            respond(200, ['results' => [], 'contacts' => [], 'error' => 'No Records Found']);
-        }
-        respond(200, ['results' => $results, 'contacts' => $rows, 'error' => '']);
+        respond(200, ['results' => $rows, 'contacts' => $rows, 'error' => empty($rows) ? 'No Records Found' : '']);
         break;
 
     // ── POST: create color ───────────────────────────────────
