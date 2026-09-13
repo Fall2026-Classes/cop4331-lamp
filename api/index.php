@@ -94,7 +94,7 @@ switch ($method) {
         }
 
         // List all colors
-        $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid ORDER BY LastName, FirstName');
+        $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid ORDER BY LastName, FirstName');
         $stmt->execute([':uid' => $userId]);
         $rows = $stmt->fetchAll();
         respond(200, ['results' => $rows, 'contacts' => $rows, 'error' => empty($rows) ? 'No Records Found' : '']);
