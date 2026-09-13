@@ -1,6 +1,6 @@
 const urlBase = (typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.origin.includes('najoalan')))
   ? '/api/index.php'
-  : 'http://lamp.najoalan.xyz/api/index.php';
+  : 'https://contacts.najoalan.xyz/api/index.php';
 
 const loginUrlBase = urlBase;
 

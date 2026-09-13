@@ -71,7 +71,7 @@ switch ($method) {
 
         // Single color by ID
         if ($id) {
-            $stmt = $db->prepare('SELECT ID as id, Name as name, UserID as user_id FROM Colors WHERE ID = :id AND UserID = :uid LIMIT 1');
+            $stmt = $db->prepare('SELECT ID as id, Name as name, UserID as user_id FROM Contacts WHERE ID = :id AND UserID = :uid LIMIT 1');
             $stmt->execute([':id' => $id, ':uid' => $userId]);
             $color = $stmt->fetch();
             if (!$color) {
@@ -83,25 +83,25 @@ switch ($method) {
         // Search colors (partial match)
         if ($search !== null && $search !== '') {
             $like = '%' . $search . '%';
-            $stmt = $db->prepare('SELECT ID as id, Name as name FROM Colors WHERE UserID = :uid AND Name LIKE :q ORDER BY Name');
+            $stmt = $db->prepare('SELECT ID as id, Name as name FROM Contacts WHERE UserID = :uid AND Name LIKE :q ORDER BY Name');
             $stmt->execute([':uid' => $userId, ':q' => $like]);
             $rows = $stmt->fetchAll();
             $results = array_column($rows, 'name');
             if (empty($results)) {
-                respond(200, ['results' => [], 'colors' => [], 'error' => 'No Records Found']);
+                respond(200, ['results' => [], 'contacts' => [], 'error' => 'No Records Found']);
             }
-            respond(200, ['results' => $results, 'colors' => $rows, 'error' => '']);
+            respond(200, ['results' => $results, 'contacts' => $rows, 'error' => '']);
         }
 
         // List all colors
-        $stmt = $db->prepare('SELECT ID as id, Name as name FROM Colors WHERE UserID = :uid ORDER BY Name');
+        $stmt = $db->prepare('SELECT ID as id, Name as name FROM Contacts WHERE UserID = :uid ORDER BY Name');
         $stmt->execute([':uid' => $userId]);
         $rows = $stmt->fetchAll();
         $results = array_column($rows, 'name');
         if (empty($results)) {
-            respond(200, ['results' => [], 'colors' => [], 'error' => 'No Records Found']);
+            respond(200, ['results' => [], 'contacts' => [], 'error' => 'No Records Found']);
         }
-        respond(200, ['results' => $results, 'colors' => $rows, 'error' => '']);
+        respond(200, ['results' => $results, 'contacts' => $rows, 'error' => '']);
         break;
 
     // ── POST: create color ───────────────────────────────────
