@@ -7,16 +7,18 @@
 //  POST   /api/index.php          — authenticate user
 //
 //  If authorization header is included, it will use these endpoints:
-//  GET    /api/index.php          — list all contacts for user
-//  GET    /api/index.php?q=term   — partial search contacts
-//  GET    /api/index.php?id=1     — get single contacts by ID
-//  POST   /api/index.php          — create new contact
-//  PUT    /api/index.php?id=1     — update contact by ID
-//  DELETE /api/index.php?id=1     — delete contact by ID
+//  GET    /api/index.php          — list all contacts for user (admins get all)
+//  GET    /api/index.php?q=term   — partial search contacts (admins get all)
+//  GET    /api/index.php?id=1     — get single contacts by ID (admins get all)
+//  POST   /api/index.php          — create new contact (admins not allowed)
+//  PUT    /api/index.php?id=1     — update contact by ID (admins not allowed)
+//  DELETE /api/index.php?id=1     — delete contact by ID (admins not allowed)
 // ============================================================
 
-// TODO: Improve break logic to exit and not continue after sending a "response()"
 // TODO: Implement logic to the PUT request to not clear feilds not included in the request. Treating it like a patch rather than a replace
+// TODO: Add functionality for admins to create users (as a user or admin)
+// TODO: Add functionlaity for admins to be able to change passwords for all users
+// TODO: Refactor all functionality to individual php pages for more endpoints
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/config/helpers.php';
@@ -67,6 +69,9 @@ if ($method === 'POST') {
 
 // 3. All other routes require an authenticated user
 $userId = requireAuth();
+$stmt = $db->prepare('SELECT UserRole FROM Users WHERE UserID = :uid');
+$stmt->execute([':uid' => $userId]);
+$userRole = $stmt->fetchColumn();
 
 switch ($method) {
 
@@ -81,6 +86,16 @@ switch ($method) {
 
         // If ID is not null, meaning it is included in the URLs paramaters, then
         if ($id) {
+            // Lookup using entire contacts table rather can scoped by ID for admins
+            if ($userRole === 'admin'){
+                $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE ID = :id LIMIT 1');
+                $stmt->execute([':id' => $id]);
+                $contact = $stmt->fetch();
+                if (!$contact) {
+                    respond(404, ['error' => 'Contact not found']);
+                }
+                respond(200, $contact);
+            }
             // Store and prepare the SQL command to run against the DB
             $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE ID = :id AND UserID = :uid LIMIT 1');
             // Execute the SQL command against the DB, passing in the params of :id from $id and :uid from $userId
@@ -97,6 +112,16 @@ switch ($method) {
 
         // Search contacts (partial match). If the search param does not equal empty string or null, then
         if ($search !== null && $search !== '') {
+            // Lookup using entire contacts table rather can scoped by ID for admins
+            if ($userRole === 'admin'){
+                $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE FirstName LIKE :q ORDER BY LastName, FirstName');
+                $stmt->execute([':uid' => $userId, ':q' => $like]);
+                $rows = $stmt->fetchAll();
+                if (empty($rows)) {
+                    respond(200, ['contacts' => []]);
+                }
+                respond(200, ['contacts' => $rows]);
+            }
             // String prep the search param for SQL
             $like = '%' . $search . '%';
             // Store and prepare the SQL command to run against the DB
@@ -113,6 +138,13 @@ switch ($method) {
             respond(200, ['contacts' => $rows]);
         }
 
+        // Lookup using entire contacts table rather can scoped by ID for admins
+        if ($userRole === 'admin'){
+            $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts ORDER BY LastName, FirstName');
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+            respond(200, ['contacts' => $rows]);
+        }
         // Store and prepare the SQL command to run against the DB
         $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid ORDER BY LastName, FirstName');
         // Execute the SQL command against the DB, passing in the params of :uid from $userId
@@ -125,6 +157,9 @@ switch ($method) {
 
     // ── POST: create contact ───────────────────────────────────
     case 'POST':
+        if ($userRole === 'admin'){
+            respond(401, ['error' => 'Unauthorized, Admins cannot manage contacts']);
+        }
         // Store the params in the request body
         $body  = getRequestBody();
         $firstName = clean($body['first_name'] ?? '');
@@ -151,6 +186,9 @@ switch ($method) {
 
     // ── PUT: update contact ─────────────────────────────────────
     case 'PUT':
+        if ($userRole === 'admin'){
+            respond(401, ['error' => 'Unauthorized, Admins cannot manage contacts']);
+        }
         // If the URL is PUT /api/index.php?id=1, $id == 1
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         // If there is no first name send a 400 BAD REQUEST indicating first name is mandatory for this request
@@ -188,6 +226,9 @@ switch ($method) {
 
     // ── DELETE: delete contact ──────────────────────────────────
     case 'DELETE':
+        if ($userRole === 'admin'){
+            respond(401, ['error' => 'Unauthorized, Admins cannot manage contacts']);
+        }
         // Store the params in the request URL
         // If the URL is PUT /api/index.php?id=1, $id == 1
         $id   = isset($_GET['id']) ? (int) $_GET['id'] : 0;
