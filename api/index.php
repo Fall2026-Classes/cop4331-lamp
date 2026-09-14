@@ -174,7 +174,7 @@ switch ($method) {
 
         // Assume that any property can or cannot be changed so no need to check if values in request exist
         // Store and prepare the SQL command to run against the DB
-        $stmt = $db->prepare('UPDATE Contacts SET FirstName = :firstname, LastName = :lastname, E-mailAddress = :email, PhoneNumber = :phone WHERE ID = :id AND UserID = :uid');
+        $stmt = $db->prepare('UPDATE Contacts SET FirstName = :firstname, LastName = :lastname, `E-mailAddress` = :email, PhoneNumber = :phone WHERE ID = :id AND UserID = :uid');
         // Execute the SQL command against the DB, passing in the params from the request
         $stmt->execute([':firstname' => $firstName, ':lastname' => $lastName, ':email' => $email, ':phone' => $phone, ':id' => $id, ':uid' => $userId]);
 
