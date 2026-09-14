@@ -13,6 +13,7 @@
 // ============================================================
 
 // TODO: Improve break logic to exit and not continue after sending a "response()"
+// TODO: Implement logic to the PUT request to not clear feilds not included in the request. Treating it like a patch rather than a replace
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/config/helpers.php';
@@ -145,7 +146,7 @@ switch ($method) {
         respond(201, ['id' => (int) $db->lastInsertId()]);
         break;
 
-    // ── PUT: update color ─────────────────────────────────────
+    // ── PUT: update contact ─────────────────────────────────────
     case 'PUT':
         // If the URL is PUT /api/index.php?id=1, $id == 1
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
@@ -182,7 +183,7 @@ switch ($method) {
         respond(200, ['message' => 'Contact updated successfully']);
         break;
 
-    // ── DELETE: delete color ──────────────────────────────────
+    // ── DELETE: delete contact ──────────────────────────────────
     case 'DELETE':
         // Store the params in the request URL
         // If the URL is PUT /api/index.php?id=1, $id == 1
