@@ -95,13 +95,13 @@ switch ($method) {
             // String prep the search param for SQL
             $like = '%' . $search . '%';
             // Store and prepare the SQL command to run against the DB
-            $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid AND Name LIKE :q ORDER BY Name');
+            $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid AND FirstName LIKE :q ORDER BY LastName, FirstName');
             // Execute the SQL command against the DB, passing in the params of :uid from $userId and :q from $like
             $stmt->execute([':uid' => $userId, ':q' => $like]);
             // Retreive the result of the SQL command's execution
             $rows = $stmt->fetchAll();
             // If the result is empty, then return 200 OK and conclude the request but just return an empty array indicating no matches.
-            if (empty($results)) {
+            if (empty($rows)) {
                 respond(200, ['contacts' => []]);
             }
             // Otherwise respond with all the returned contacts's data in JSON with a 200 OK
