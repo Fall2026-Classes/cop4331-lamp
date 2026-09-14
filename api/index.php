@@ -69,10 +69,9 @@ if ($method === 'POST') {
 
 // 3. All other routes require an authenticated user
 $userId = requireAuth();
-$stmt = $db->prepare('SELECT UserRole FROM Users WHERE UserID = :uid');
+$stmt = $db->prepare('SELECT UserRole FROM Users WHERE ID = :uid');
 $stmt->execute([':uid' => $userId]);
 $userRole = $stmt->fetchColumn();
-respond(123, ['error' => $userRole]);
 
 switch ($method) {
 
