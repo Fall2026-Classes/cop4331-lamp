@@ -2,14 +2,17 @@
 // ============================================================
 //  api/index.php — Unified Contacts Manager RESTful API
 //
+//  If authorization header is not included, it will use these endpoints:
 //  GET    /api/index.php?ping=1   — status ping health check
-//  POST   /api/index.php (login)  — authenticate user
+//  POST   /api/index.php          — authenticate user
+//
+//  If authorization header is included, it will use these endpoints:
 //  GET    /api/index.php          — list all contacts for user
 //  GET    /api/index.php?q=term   — partial search contacts
 //  GET    /api/index.php?id=1     — get single contacts by ID
-//  POST   /api/index.php (color)  — create new color
-//  PUT    /api/index.php?id=1     — update color by ID
-//  DELETE /api/index.php?id=1     — delete color by ID
+//  POST   /api/index.php          — create new contact
+//  PUT    /api/index.php?id=1     — update contact by ID
+//  DELETE /api/index.php?id=1     — delete contact by ID
 // ============================================================
 
 // TODO: Improve break logic to exit and not continue after sending a "response()"
@@ -163,7 +166,7 @@ switch ($method) {
 
         // If no contacts return, exit with a 404 NOT FOUND 
         if (!$check->fetch()) {
-            respond(404, ['error' => 'Color not found']);
+            respond(404, ['error' => 'Contact not found']);
         }
 
         // Store the params in the request body of the HTTP request, not the returned DB object
