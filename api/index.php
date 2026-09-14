@@ -7,11 +7,12 @@
 //  GET    /api/index.php          — list all contacts for user
 //  GET    /api/index.php?q=term   — partial search contacts
 //  GET    /api/index.php?id=1     — get single contacts by ID
-
 //  POST   /api/index.php (color)  — create new color
 //  PUT    /api/index.php?id=1     — update color by ID
 //  DELETE /api/index.php?id=1     — delete color by ID
 // ============================================================
+
+// TODO: Improve break logic to exit and not continue after sending a "response()"
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/config/helpers.php';
@@ -108,7 +109,6 @@ switch ($method) {
             respond(200, ['contacts' => $rows]);
         }
 
-        // List all contacts
         // Store and prepare the SQL command to run against the DB
         $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid ORDER BY LastName, FirstName');
         // Execute the SQL command against the DB, passing in the params of :uid from $userId
@@ -121,6 +121,7 @@ switch ($method) {
 
     // ── POST: create contact ───────────────────────────────────
     case 'POST':
+        // Store the params in the request body
         $body  = getRequestBody();
         $firstName = clean($body['first_name'] ?? '');
         $lastName = clean($body['last_name'] ?? '');
@@ -135,7 +136,9 @@ switch ($method) {
             respond(400, ['error' => 'The phone number of the contact is a required field']);
         }
 
+        // Store and prepare the SQL command to run against the DB
         $stmt = $db->prepare('INSERT INTO Contacts (UserID, FirstName, LastName, `E-mailAddress`, PhoneNumber) VALUES (:uid, :firstname, :lastname, :email, :phone)');
+        // Execute the SQL command against the DB, passing in the params from the request body
         $stmt->execute([':uid' => $userId, ':firstname' => $firstName, ':lastname' => $lastName, ':email' => $email, ':phone' => $phone]);
 
         // Return a 201 to indicate a successful creation and return only the ID of the created contact
@@ -144,49 +147,64 @@ switch ($method) {
 
     // ── PUT: update color ─────────────────────────────────────
     case 'PUT':
+        // If the URL is PUT /api/index.php?id=1, $id == 1
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+        // If there is no first name send a 400 BAD REQUEST indicating first name is mandatory for this request
         if (!$id) {
-            respond(400, ['error' => 'Color ID is required — use ?id=']);
+            respond(400, ['error' => 'Contact ID is required. Use the format ?id=']);
         }
 
-        $check = $db->prepare('SELECT ID FROM Colors WHERE ID = :id AND UserID = :uid LIMIT 1');
+        // Perform initial check to see if entry at ID exists and is owned by the requesting user
+        // Store and prepare the SQL command to run against the DB
+        $check = $db->prepare('SELECT ID FROM Contacts WHERE ID = :id AND UserID = :uid LIMIT 1');
+        // Execute the SQL command against the DB, passing in the params from the request
         $check->execute([':id' => $id, ':uid' => $userId]);
+
+        // If no contacts return, exit with a 404 NOT FOUND 
         if (!$check->fetch()) {
             respond(404, ['error' => 'Color not found']);
         }
 
+        // Store the params in the request body of the HTTP request, not the returned DB object
         $body  = getRequestBody();
-        $color = clean($body['color'] ?? $body['name'] ?? '');
-        if (!$color) {
-            respond(400, ['error' => 'Color name is required']);
-        }
+        $firstName = clean($body['first_name'] ?? '');
+        $lastName = clean($body['last_name'] ?? '');
+        $email = clean($body['email'] ?? '');
+        $phone = clean($body['phone'] ?? '');
 
-        $stmt = $db->prepare('UPDATE Colors SET Name = :name WHERE ID = :id AND UserID = :uid');
-        $stmt->execute([':name' => $color, ':id' => $id, ':uid' => $userId]);
+        // Assume that any property can or cannot be changed so no need to check if values in request exist
+        // Store and prepare the SQL command to run against the DB
+        $stmt = $db->prepare('UPDATE Colors SET FirstName = :firstname, LastName = :lastname, E-mailAddress = :email, PhoneNumber = :phone WHERE ID = :id AND UserID = :uid');
+        // Execute the SQL command against the DB, passing in the params from the request
+        $stmt->execute([':firstname' => $firstName, ':lastname' => $lastName, ':email' => $email, ':phone' => $phone, ':id' => $id, ':uid' => $userId]);
 
-        respond(200, ['message' => 'Color updated', 'error' => '']);
+        // Return a 200 to indicate a successful update
+        respond(200, ['message' => 'Contact updated successfully']);
         break;
 
     // ── DELETE: delete color ──────────────────────────────────
     case 'DELETE':
+        // Store the params in the request URL
+        // If the URL is PUT /api/index.php?id=1, $id == 1
         $id   = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-        $name = isset($_GET['name']) ? clean($_GET['name']) : '';
 
-        if ($id > 0) {
-            $stmt = $db->prepare('DELETE FROM Colors WHERE ID = :id AND UserID = :uid');
-            $stmt->execute([':id' => $id, ':uid' => $userId]);
-        } elseif ($name !== '') {
-            $stmt = $db->prepare('DELETE FROM Colors WHERE Name = :name AND UserID = :uid LIMIT 1');
-            $stmt->execute([':name' => $name, ':uid' => $userId]);
-        } else {
-            respond(400, ['error' => 'Color ID or Name is required — use ?id= or ?name=']);
+        // If there is no first name send a 400 BAD REQUEST indicating first name is mandatory for this request
+        if (!$id) {
+            respond(400, ['error' => 'Contact ID is required. Use the format ?id=']);
         }
 
+        // Store and prepare the SQL command to run against the DB
+        $stmt = $db->prepare('DELETE FROM Colors WHERE ID = :id AND UserID = :uid');
+        // Execute the SQL command against the DB, passing in the params from the request
+        $stmt->execute([':id' => $id, ':uid' => $userId]);
+
+        // Check if there is a contact matching that ID owned by that user to delete
         if ($stmt->rowCount() === 0) {
-            respond(404, ['error' => 'Color not found']);
+            respond(404, ['error' => 'Contact not found']);
         }
 
-        respond(200, ['message' => 'Color deleted', 'error' => '']);
+        // Return a 200 to indicate a successful deletion
+        respond(200, ['message' => 'Contact deleted successfully']);
         break;
 
     default:
