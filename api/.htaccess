@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# allows /api/contacts resolve to /api/contacts.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# Block direct access to the .php files themselves,
+# forcing clients to use the extension-less URL only.
+RewriteCond %{THE_REQUEST} \s/([^.]+)\.php[\s?] [NC]
+RewriteRule ^ /%1 [R=301,L]
