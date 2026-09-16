@@ -9,8 +9,15 @@ setCORSHeaders();
 $method = $_SERVER['REQUEST_METHOD'];
 $db     = getDB();
 
+$userId = requireAuth();
+$userRole = getUserRole($db, $userId);
+
 if ($method !== 'POST') {
     respond(405, ['error' => 'Method not allowed']);
+}
+
+if ($userRole !== 'admin'){
+    respond(401, ['error' => 'Unauthorized, standard users cannot create admins']);
 }
 
 $body = getRequestBody();
@@ -20,7 +27,7 @@ if (isset($body['username']) && isset($body['password'])) {
     $password = $body['password'];
     $firstName = clean($body['first_name'] ?? '');
     $lastName = clean($body['last_name'] ?? '');
-    $userRole = 'user';
+    $userRole = 'admin';
 
     if (!$username || !$password) {
         respond(400, ['error' => 'Username and password are required']);
