@@ -69,9 +69,7 @@ if ($method === 'POST') {
 
 // 3. All other routes require an authenticated user
 $userId = requireAuth();
-$stmt = $db->prepare('SELECT UserRole FROM Users WHERE ID = :uid');
-$stmt->execute([':uid' => $userId]);
-$userRole = $stmt->fetchColumn();
+$userRole = getUserRole($db, $userId);
 
 switch ($method) {
 
@@ -112,6 +110,9 @@ switch ($method) {
 
         // Search contacts (partial match). If the search param does not equal empty string or null, then
         if ($search !== null && $search !== '') {
+            // String prep the search param for SQL
+            $like = '%' . $search . '%';
+
             // Lookup using entire contacts table rather can scoped by ID for admins
             if ($userRole === 'admin'){
                 $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE FirstName LIKE :q ORDER BY LastName, FirstName');
@@ -122,8 +123,7 @@ switch ($method) {
                 }
                 respond(200, ['contacts' => $rows]);
             }
-            // String prep the search param for SQL
-            $like = '%' . $search . '%';
+            
             // Store and prepare the SQL command to run against the DB
             $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid AND FirstName LIKE :q ORDER BY LastName, FirstName');
             // Execute the SQL command against the DB, passing in the params of :uid from $userId and :q from $like

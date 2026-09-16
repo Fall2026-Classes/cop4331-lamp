@@ -200,3 +200,12 @@ function requireAuth() {
 
     return (int)$userId;
 }
+
+// Helper function that takes in the db data obj and then queries/returns the users role
+function getUserRole(PDO $db, $userId){
+    $stmt = $db->prepare('SELECT UserRole FROM Users WHERE ID = :uid');
+    $stmt->execute([':uid' => $userId]);
+    $userRole = $stmt->fetchColumn();
+
+    return $userRole;
+}
