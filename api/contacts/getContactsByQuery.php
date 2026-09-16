@@ -1,8 +1,8 @@
 <?php
 //  GET     /api/contacts/getContactByQuery?q=term - return the users matching the search term
 
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/config/helpers.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/helpers.php';
 
 setCORSHeaders();
 

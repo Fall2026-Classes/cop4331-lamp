@@ -1,8 +1,8 @@
 <?php
 //  DELETE     /api/contacts/deleteContactById?id=1 - delete the contact specified by ID
 
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/config/helpers.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/helpers.php';
 
 setCORSHeaders();
 

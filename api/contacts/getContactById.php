@@ -1,8 +1,8 @@
 <?php
 //  GET     /api/contacts/getContactById?id=1 - return the requested user by id
 
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/config/helpers.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/helpers.php';
 
 setCORSHeaders();
 

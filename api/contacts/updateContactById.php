@@ -1,8 +1,8 @@
 <?php
 //  PUT     /api/contacts/updateContactById?id=1 - update the contact specified by ID
 
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/config/helpers.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/helpers.php';
 
 setCORSHeaders();
 

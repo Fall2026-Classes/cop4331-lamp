@@ -1,8 +1,8 @@
 <?php
 //  POST     /api/contacts/createContact - creates a new contact owned by the requesting user
 
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/config/helpers.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/helpers.php';
 
 setCORSHeaders();
 
