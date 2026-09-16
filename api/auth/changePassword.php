@@ -9,6 +9,9 @@ setCORSHeaders();
 $method = $_SERVER['REQUEST_METHOD'];
 $db     = getDB();
 
+$userId = requireAuth();
+$userRole = getUserRole($db, $userId);
+
 if ($method !== 'PUT') {
     respond(405, ['error' => 'Method not allowed']);
 }

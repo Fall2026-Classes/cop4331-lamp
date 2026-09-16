@@ -13,9 +13,6 @@ if ($method !== 'POST') {
     respond(405, ['error' => 'Method not allowed']);
 }
 
-$userId = requireAuth();
-$userRole = getUserRole($db, $userId);
-
 $body = getRequestBody();
 
 if (isset($body['username']) && isset($body['password'])) {
