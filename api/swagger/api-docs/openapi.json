@@ -1,0 +1,463 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Contacts Manager API",
+    "description": "LAMP-stack contacts manager. The health check endpoint requires no authentication. Login also requires no authentication but returns a token. All other endpoints require an Authorization header (Bearer token, where the token is the user's numeric ID returned at login). Admin users can view all contacts but cannot create, update, or delete them.",
+    "version": "1.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://contacts.najoalan.xyz/api/",
+      "description": "Production"
+    }
+  ],
+  "tags": [
+    { "name": "Health", "description": "Service status" },
+    { "name": "Auth", "description": "Authentication and account endpoints" },
+    { "name": "Contacts", "description": "CRUD operations on contacts" }
+  ],
+  "paths": {
+    "/echo/debug": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Public endpoint to confirm the API is up.",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "OK" },
+                    "timestamp": { "type": "integer", "example": 1758000000 }
+                  }
+                }
+              }
+            }
+          },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log in",
+        "description": "Authenticates a user with a login and password. Returns the numeric user ID as a bearer token on success.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["login", "password"],
+                "properties": {
+                  "login": { "type": "string" },
+                  "password": { "type": "string", "format": "password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login succeeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer", "example": 1 },
+                    "firstName": { "type": "string" },
+                    "lastName": { "type": "string" },
+                    "token": { "type": "string", "description": "The user's numeric ID as a string; pass as the Bearer token." },
+                    "error": { "type": "string", "example": "" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing login or password",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer", "example": 0 },
+                    "firstName": { "type": "string", "example": "" },
+                    "lastName": { "type": "string", "example": "" },
+                    "error": { "type": "string", "example": "No Records Found" }
+                  }
+                }
+              }
+            }
+          },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "description": "Not yet implemented. Currently returns a placeholder response regardless of input.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "error": { "type": "string", "example": "TODO" } }
+                }
+              }
+            }
+          },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/auth/changePassword": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Change password",
+        "description": "Not yet implemented. Currently returns a placeholder response regardless of input.",
+        "responses": {
+          "200": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "error": { "type": "string", "example": "TODO" } }
+                }
+              }
+            }
+          },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get current user info",
+        "description": "Not yet implemented. Currently returns a placeholder response.",
+        "responses": {
+          "200": {
+            "description": "Not implemented yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "error": { "type": "string", "example": "TODO" } }
+                }
+              }
+            }
+          },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/contacts/getAllContacts": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "List contacts",
+        "description": "Returns all contacts owned by the requesting user. Admins receive every contact in the system instead of only their own.",
+        "responses": {
+          "200": {
+            "description": "List of contacts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "contacts": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Contact" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/contacts/getContactById": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Get a contact by ID",
+        "description": "Returns a single contact by ID. Non-admin users can only fetch their own contacts.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ContactId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested contact",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Contact" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequestId" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/contacts/getContactsByQuery": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Search contacts",
+        "description": "Searches contacts by first name (partial match). Non-admin users are scoped to their own contacts.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Search term matched against first name. `search` is also accepted as an alias.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching contacts (empty array if none found)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "contacts": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Contact" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query parameter",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/contacts/createContact": {
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "Create a contact",
+        "description": "Creates a new contact owned by the requesting user. Admins are not permitted to manage contacts.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ContactInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contact created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "id": { "type": "integer", "example": 42 } }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required field (first name or phone)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/AdminForbidden" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/contacts/updateContactById": {
+      "put": {
+        "tags": ["Contacts"],
+        "summary": "Update a contact",
+        "description": "Updates a contact owned by the requesting user. Admins are not permitted to manage contacts. All fields are optional and unsent fields are cleared to empty string.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ContactId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ContactInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contact updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string", "example": "Contact updated successfully" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequestId" },
+          "401": { "$ref": "#/components/responses/AdminForbidden" },
+          "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/contacts/deleteContactById": {
+      "delete": {
+        "tags": ["Contacts"],
+        "summary": "Delete a contact",
+        "description": "Deletes a contact owned by the requesting user. Admins are not permitted to manage contacts.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ContactId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contact deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string", "example": "Contact deleted successfully" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequestId" },
+          "401": { "$ref": "#/components/responses/AdminForbidden" },
+          "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The token returned by /auth/login (the user's numeric ID)."
+      }
+    },
+    "parameters": {
+      "ContactId": {
+        "name": "id",
+        "in": "query",
+        "required": true,
+        "description": "The contact's numeric ID.",
+        "schema": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "schemas": {
+      "Contact": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string" }
+        }
+      },
+      "ContactInput": {
+        "type": "object",
+        "properties": {
+          "first_name": { "type": "string" },
+          "last_name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string" }
+        },
+        "required": ["first_name", "phone"]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "MethodNotAllowed": {
+        "description": "HTTP method not supported on this endpoint",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Method not allowed" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid authentication",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Unauthorized" }
+          }
+        }
+      },
+      "AdminForbidden": {
+        "description": "Missing/invalid authentication, or the authenticated user is an admin (admins cannot manage contacts)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Unauthorized, Admins cannot manage contacts" }
+          }
+        }
+      },
+      "BadRequestId": {
+        "description": "Missing or invalid id parameter",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "A valid id is required, example api/endpoint?id=1" }
+          }
+        }
+      },
+      "ContactNotFound": {
+        "description": "No contact matches that ID for this user",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Contact not found" }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    { "bearerAuth": [] }
+  ]
+}
