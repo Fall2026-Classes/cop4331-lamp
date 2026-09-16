@@ -29,7 +29,7 @@ $like = '%' . $search . '%';
 // If the user's role is admin, lookup using entire contacts table rather can scoped by UID
 if ($userRole === 'admin'){
     $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE FirstName LIKE :q ORDER BY LastName, FirstName');
-    $stmt->execute([':uid' => $userId, ':q' => $like]);
+    $stmt->execute([':q' => $like]);
 } else {
     $stmt = $db->prepare('SELECT ID as id, FirstName as firstName, LastName as lastName, `E-mailAddress` as email, PhoneNumber as phone FROM Contacts WHERE UserID = :uid AND FirstName LIKE :q ORDER BY LastName, FirstName');
     $stmt->execute([':uid' => $userId, ':q' => $like]);
