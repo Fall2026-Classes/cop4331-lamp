@@ -1,0 +1,29 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "My RPC API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/getUser": {
+      "post": {
+        "summary": "Fetch a user profile by ID",
+        "operationId": "getUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "userId": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Successful operation" }
+        }
+      }
+    }
+  }
+}
