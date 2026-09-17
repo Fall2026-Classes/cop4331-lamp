@@ -40,7 +40,7 @@ if (!$check->fetch()) {
 $body  = getRequestBody();
 
 // Extract the vlues from the body
-$password = password = $body['password'];
+$password = $body['password'];
 
 // Assume that any property can or cannot be changed so no need to check if values in request exist
 // Store and prepare the SQL command to run against the DB
