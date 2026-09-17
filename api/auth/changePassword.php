@@ -17,7 +17,7 @@ if ($method !== 'PUT') {
 }
 
 if ($userRole !== 'admin'){
-    respond(401, ['error' => 'Unauthorized, standard users cannot create admins']);
+    respond(401, ['error' => 'Unauthorized, standard users cannot change passwords']);
 }
 
 // Get ID from URL parameters
