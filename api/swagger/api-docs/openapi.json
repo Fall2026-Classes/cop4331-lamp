@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Contacts Manager API",
-    "description": "LAMP-stack contacts manager. The health check endpoint requires no authentication. Login also requires no authentication but returns a token. All other endpoints require an Authorization header (Bearer token, where the token is the user's numeric ID returned at login). Admin users can view all contacts but cannot create, update, or delete them.",
-    "version": "1.1.0"
+    "description": "LAMP-stack contacts manager. The health check, login, and register endpoints require no authentication. All other endpoints require an Authorization header (Bearer token, where the token is the user's numeric ID returned at login). Admin users can view all contacts but cannot create, update, or delete them. Admin users are also the only ones who can change a user's password or register new admin accounts.",
+    "version": "1.2.0"
   },
   "servers": [
     {
@@ -22,6 +22,7 @@
         "tags": ["Health"],
         "summary": "Health check",
         "description": "Public endpoint to confirm the API is up.",
+        "security": [],
         "responses": {
           "200": {
             "description": "Service is healthy",
@@ -45,7 +46,7 @@
       "post": {
         "tags": ["Auth"],
         "summary": "Log in",
-        "description": "Authenticates a user with a login and password. Returns the numeric user ID as a bearer token on success.",
+        "description": "Authenticates a user with a login and password (matched as an exact, case-sensitive string against the stored password — there is no hashing). Returns the numeric user ID as a bearer token on success.",
         "security": [],
         "requestBody": {
           "required": true,
@@ -81,10 +82,11 @@
             }
           },
           "400": {
-            "description": "Missing login or password",
+            "description": "Login or password present but empty",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "Login and password are required" }
               }
             }
           },
@@ -112,16 +114,89 @@
       "post": {
         "tags": ["Auth"],
         "summary": "Register a new user",
-        "description": "Not yet implemented. Currently returns a placeholder response regardless of input.",
+        "description": "Creates a new standard user account (UserRole is always set to `user`; use /auth/registerAdmin to create admin accounts). No authentication is required. If `username` or `password` is omitted from the request entirely (rather than sent empty), the endpoint currently returns an empty 200 response instead of an error.",
         "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterInput" }
+            }
+          }
+        },
         "responses": {
-          "200": {
-            "description": "Not implemented yet",
+          "201": {
+            "description": "User created",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": { "error": { "type": "string", "example": "TODO" } }
+                  "properties": { "message": { "type": "string", "example": "User created successfully" } }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing username/password, or a user with that username already exists",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "missingFields": { "value": { "error": "Username and password are required" } },
+                  "duplicateUser": { "value": { "error": "User already exists with that username" } }
+                }
+              }
+            }
+          },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/auth/registerAdmin": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new admin user",
+        "description": "Admin-only. Creates a new user account with UserRole set to `admin`. Requires the requesting user (identified by the Bearer token) to already be an admin.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Admin user created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string", "example": "User created successfully" } }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing username/password, or a user with that username already exists",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "missingFields": { "value": { "error": "Username and password are required" } },
+                  "duplicateUser": { "value": { "error": "User already exists with that username" } }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid authentication, or the authenticated user is not an admin",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "unauthenticated": { "value": { "error": "Unauthorized" } },
+                  "notAdmin": { "value": { "error": "Unauthorized, standard users cannot create admins" } }
                 }
               }
             }
@@ -131,40 +206,58 @@
       }
     },
     "/auth/changePassword": {
-      "post": {
+      "put": {
         "tags": ["Auth"],
-        "summary": "Change password",
-        "description": "Not yet implemented. Currently returns a placeholder response regardless of input.",
+        "summary": "Change a user's password",
+        "description": "Admin-only. Sets the password for the user identified by the `id` query parameter (this is the target user being modified, not necessarily the caller). Standard users, including the caller changing their own password, are rejected.",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["password"],
+                "properties": {
+                  "password": { "type": "string", "format": "password" }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Not implemented yet",
+            "description": "Password updated",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": { "error": { "type": "string", "example": "TODO" } }
+                  "properties": { "message": { "type": "string", "example": "User updated successfully" } }
                 }
               }
             }
           },
-          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
-        }
-      }
-    },
-    "/auth/me": {
-      "get": {
-        "tags": ["Auth"],
-        "summary": "Get current user info",
-        "description": "Not yet implemented. Currently returns a placeholder response.",
-        "responses": {
-          "200": {
-            "description": "Not implemented yet",
+          "400": { "$ref": "#/components/responses/BadRequestId" },
+          "401": {
+            "description": "Missing/invalid authentication, or the authenticated user is not an admin",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": { "error": { "type": "string", "example": "TODO" } }
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "unauthenticated": { "value": { "error": "Unauthorized" } },
+                  "notAdmin": { "value": { "error": "Unauthorized, standard users cannot change passwords" } }
                 }
+              }
+            }
+          },
+          "404": {
+            "description": "No user matches that ID",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "User not found" }
               }
             }
           },
@@ -227,7 +320,7 @@
       "get": {
         "tags": ["Contacts"],
         "summary": "Search contacts",
-        "description": "Searches contacts by first name (partial match). Non-admin users are scoped to their own contacts.",
+        "description": "Returns contacts owned by the requesting user whose first name contains the given search term (case-insensitive substring match). Admins search across every contact in the system instead of only their own.",
         "parameters": [
           {
             "name": "q",
@@ -257,7 +350,10 @@
           "400": {
             "description": "Missing query parameter",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "A valid query is required, example api/endpoint?q=term" }
+              }
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
@@ -274,7 +370,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ContactInput" }
+              "schema": { "$ref": "#/components/schemas/ContactCreateInput" }
             }
           }
         },
@@ -293,7 +389,13 @@
           "400": {
             "description": "Missing required field (first name or phone)",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "missingFirstName": { "value": { "error": "The first name of the contact is a required field" } },
+                  "missingPhone": { "value": { "error": "The phone number of the contact is a required field" } }
+                }
+              }
             }
           },
           "401": { "$ref": "#/components/responses/AdminForbidden" },
@@ -305,7 +407,7 @@
       "put": {
         "tags": ["Contacts"],
         "summary": "Update a contact",
-        "description": "Updates a contact owned by the requesting user. Admins are not permitted to manage contacts. All fields are optional and unsent fields are cleared to empty string.",
+        "description": "Updates a contact owned by the requesting user. Admins are not permitted to manage contacts. Unlike creation, no field is validated as required here — any field omitted from the request body (including first_name and phone) is overwritten with an empty string.",
         "parameters": [
           { "$ref": "#/components/parameters/ContactId" }
         ],
@@ -313,7 +415,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ContactInput" }
+              "schema": { "$ref": "#/components/schemas/ContactUpdateInput" }
             }
           }
         },
@@ -379,6 +481,13 @@
         "required": true,
         "description": "The contact's numeric ID.",
         "schema": { "type": "integer", "minimum": 1 }
+      },
+      "UserId": {
+        "name": "id",
+        "in": "query",
+        "required": true,
+        "description": "The numeric ID of the user whose password is being changed.",
+        "schema": { "type": "integer", "minimum": 1 }
       }
     },
     "schemas": {
@@ -392,7 +501,7 @@
           "phone": { "type": "string" }
         }
       },
-      "ContactInput": {
+      "ContactCreateInput": {
         "type": "object",
         "properties": {
           "first_name": { "type": "string" },
@@ -401,6 +510,26 @@
           "phone": { "type": "string" }
         },
         "required": ["first_name", "phone"]
+      },
+      "ContactUpdateInput": {
+        "type": "object",
+        "description": "All fields are optional. Any field left out is cleared to an empty string on the stored contact.",
+        "properties": {
+          "first_name": { "type": "string" },
+          "last_name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string" }
+        }
+      },
+      "RegisterInput": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string" },
+          "password": { "type": "string", "format": "password" },
+          "first_name": { "type": "string" },
+          "last_name": { "type": "string" }
+        },
+        "required": ["username", "password"]
       },
       "Error": {
         "type": "object",
