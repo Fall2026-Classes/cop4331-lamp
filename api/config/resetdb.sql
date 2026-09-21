@@ -1,94 +1,110 @@
 -- ============================================================
--- SQL Full Reset Script: resetdb.sql
--- Project: COP4331 LAMP Stack Demo (Colors Manager)
--- Description: Drops existing tables if present, recreates schema,
---              seeds users and colors, and sets up user permissions.
+--  resetdb.sql
+--  Project: COP 4331 LAMP Stack Demo (Contacts Manager)
+--  Path:    api/config/resetdb.sql
+--
+--  Drops and recreates ContactsAppDB, seeds sample data, and
+--  creates the unprivileged application user.
+--
+--  Run as root:   mysql -u root -p < resetdb.sql
 -- ============================================================
 
--- Create and select database
-CREATE DATABASE IF NOT EXISTS `ColorsAppDB`
+CREATE DATABASE IF NOT EXISTS `ContactsAppDB`
     DEFAULT CHARACTER SET utf8mb4
     DEFAULT COLLATE utf8mb4_unicode_ci;
 
-USE `ColorsAppDB`;
+USE `ContactsAppDB`;
 
--- Drop existing tables to ensure a clean state
-DROP TABLE IF EXISTS `Colors`;
+-- Drop children before parents (FK dependency)
+DROP TABLE IF EXISTS `Contacts`;
 DROP TABLE IF EXISTS `Users`;
 
--- Create Users Table
+
+-- ============================================================
+--  Users
+-- ============================================================
 CREATE TABLE `Users` (
-    `ID` INT NOT NULL AUTO_INCREMENT,
-    `FirstName` VARCHAR(50) NOT NULL DEFAULT '',
-    `LastName` VARCHAR(50) NOT NULL DEFAULT '',
-    `Login` VARCHAR(50) NOT NULL DEFAULT '',
-    `Password` VARCHAR(50) NOT NULL DEFAULT '',
+    `ID`          INT           NOT NULL AUTO_INCREMENT,
+    `FirstName`   VARCHAR(50)   NOT NULL DEFAULT '',
+    `LastName`    VARCHAR(50)   NOT NULL DEFAULT '',
+    `Login`       VARCHAR(50)   NOT NULL,
+    `Password`    VARCHAR(255)  NOT NULL DEFAULT '',
+    `UserRole`    ENUM('user','admin') NOT NULL DEFAULT 'user',
+    `DateCreated` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `DateUpdated` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`ID`),
-    INDEX `idx_users_login` (`Login`)
+    UNIQUE KEY `uq_users_login` (`Login`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create Colors Table
-CREATE TABLE `Colors` (
-    `ID` INT NOT NULL AUTO_INCREMENT,
-    `Name` VARCHAR(50) NOT NULL DEFAULT '',
-    `UserID` INT NOT NULL DEFAULT 0,
+
+-- ============================================================
+--  Contacts
+--  UserID is a foreign key to Users.ID.
+--  Deleting a user deletes that user's contacts.
+-- ============================================================
+CREATE TABLE `Contacts` (
+    `ID`             INT          NOT NULL AUTO_INCREMENT,
+    `UserID`         INT          NOT NULL,
+    `FirstName`      VARCHAR(50)  NOT NULL DEFAULT '',
+    `LastName`       VARCHAR(50)  NOT NULL DEFAULT '',
+    `E-mailAddress`  VARCHAR(100) NOT NULL DEFAULT '',
+    `PhoneNumber`    VARCHAR(25)  NOT NULL DEFAULT '',
+    `DateCreated`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `DateUpdated`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                  ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`ID`),
-    INDEX `idx_colors_userid` (`UserID`)
+    KEY `idx_contacts_userid` (`UserID`),
+    KEY `idx_contacts_lastname` (`LastName`),
+    CONSTRAINT `fk_contacts_user`
+        FOREIGN KEY (`UserID`) REFERENCES `Users` (`ID`)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Seed Sample Users
-INSERT INTO `Users` (`FirstName`, `LastName`, `Login`, `Password`) VALUES
-('Rick', 'Leinecker', 'RickL', 'COP4331'),
-('Sam', 'Hill', 'SamH', 'Test'),
-('Rick', 'Leinecker', 'RickL_MD5', '5832a71366768098cceb7095efb774f2'),
-('Sam', 'Hill', 'SamH_MD5', '0cbc6611f5540bd0809a388dc95a615b');
 
--- Seed Sample Colors for User 1 (RickL)
-INSERT INTO `Colors` (`Name`, `UserID`) VALUES
-('Blue', 1),
-('White', 1),
-('Black', 1),
-('Magenta', 1),
-('Yellow', 1),
-('Cyan', 1),
-('Salmon', 1),
-('Chartreuse', 1),
-('Lime', 1),
-('Light Blue', 1),
-('Light Gray', 1),
-('Light Red', 1),
-('Light Green', 1),
-('Chiffon', 1),
-('Fuscia', 1),
-('Brown', 1),
-('Beige', 1);
+-- ============================================================
+--  Seed: Users
+--  Passwords are plaintext for the Project 1 demo.
+-- ============================================================
+INSERT INTO `Users` (`FirstName`, `LastName`, `Login`, `Password`, `UserRole`) VALUES
+('Rick', 'Leinecker', 'RickL',  'COP4331', 'user'),
+('Sam',  'Hill',      'SamH',   'Test',    'user'),
+('Ada',  'Lovelace',  'AdaL',   'Analyt1cal', 'user'),
+('Site', 'Admin',     'admin',  'Admin4331', 'admin');
 
--- Seed Sample Colors for User 3 (RickL_MD5)
-INSERT INTO `Colors` (`Name`, `UserID`) VALUES
-('Blue', 3),
-('White', 3),
-('Black', 3),
-('Gray', 3),
-('Magenta', 3),
-('Yellow', 3),
-('Cyan', 3),
-('Salmon', 3),
-('Chartreuse', 3),
-('Lime', 3),
-('Light Blue', 3),
-('Light Gray', 3),
-('Light Red', 3),
-('Light Green', 3),
-('Chiffon', 3),
-('Fuscia', 3),
-('Brown', 3),
-('Beige', 3);
 
--- Create Application Database User & Privileges
-CREATE USER IF NOT EXISTS 'ColorsAppUser'@'localhost' IDENTIFIED BY 'WeLoveCOP4331!';
-GRANT ALL PRIVILEGES ON `ColorsAppDB`.* TO 'ColorsAppUser'@'localhost';
+-- ============================================================
+--  Seed: Contacts
+-- ============================================================
+INSERT INTO `Contacts` (`UserID`, `FirstName`, `LastName`, `E-mailAddress`, `PhoneNumber`) VALUES
+(1, 'Grace',   'Hopper',   'ghopper@navy.mil',        '407-555-0101'),
+(1, 'Alan',    'Turing',   'aturing@bletchley.org',   '407-555-0102'),
+(1, 'Katherine','Johnson', 'kjohnson@nasa.gov',       '321-555-0103'),
+(1, 'Linus',   'Torvalds', 'linus@kernel.org',        '407-555-0104'),
+(2, 'Margaret','Hamilton', 'mhamilton@mit.edu',       '617-555-0105'),
+(2, 'Dennis',  'Ritchie',  'dmr@bell-labs.com',       '908-555-0106'),
+(3, 'Charles', 'Babbage',  'cbabbage@analytical.uk',  '407-555-0107');
 
-CREATE USER IF NOT EXISTS 'ColorsAppUser'@'%' IDENTIFIED BY 'WeLoveCOP4331!';
-GRANT ALL PRIVILEGES ON `ColorsAppDB`.* TO 'ColorsAppUser'@'%';
+
+-- ============================================================
+--  Application user (unprivileged)
+--  Only CRUD on ContactsAppDB. No DDL, no access to other
+--  databases, no GRANT option.
+--  This password must match DB_PASSWORD in your .env file.
+-- ============================================================
+DROP USER IF EXISTS 'ContactsAppUser'@'localhost';
+CREATE USER 'ContactsAppUser'@'localhost' IDENTIFIED BY 'WeLoveCOP4331!';
+GRANT SELECT, INSERT, UPDATE, DELETE ON `ContactsAppDB`.* TO 'ContactsAppUser'@'localhost';
 
 FLUSH PRIVILEGES;
+
+
+-- ============================================================
+--  Verification (what the TA will ask you to run)
+-- ============================================================
+SHOW TABLES;
+DESCRIBE `Users`;
+DESCRIBE `Contacts`;
+SELECT * FROM `Users`;
+SELECT * FROM `Contacts`;
