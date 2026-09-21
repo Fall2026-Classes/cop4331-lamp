@@ -145,6 +145,7 @@ label{
 .field{
   display:flex;
   align-items:center;
+  min-width:0;
   border:1px solid var(--phosphor-deep);
   background:rgba(0,0,0,.55);
   margin-bottom:16px;
@@ -164,7 +165,8 @@ label{
 }
 
 input{
-  flex:1;
+  flex:1 1 0;
+  width:100%;
   min-width:0;
   border:0;
   outline:0;
@@ -182,11 +184,15 @@ input:-webkit-autofill{
   -webkit-box-shadow:0 0 0 1000px #001a06 inset;
 }
 
+/* minmax(0,1fr) lets columns shrink below the input's intrinsic
+   ~20-character minimum, which otherwise overflows the panel. */
 .grid2{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:0 16px;
 }
+
+.grid2 > *{min-width:0;}
 
 /* ---------- buttons ---------- */
 button{
