@@ -1,238 +1,471 @@
-const urlBase = (typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.origin.includes('najoalan')))
-  ? '/api/index.php'
-  : 'https://contacts.najoalan.xyz/api/index.php';
+// ============================================================
+//  js/code.js — COP 4331 Contacts Manager
+//  Talks to the PHP API under /api (see api/swagger for docs).
+// ============================================================
 
-const loginUrlBase = urlBase;
+const API_BASE =
+  (window.location.hostname === 'localhost' ||
+   window.location.hostname === '127.0.0.1' ||
+   window.location.hostname.includes('najoalan'))
+    ? '/api'
+    : 'https://contacts.najoalan.xyz/api';
 
 let userId = 0;
-let firstName = "";
-let lastName = "";
+let firstName = '';
+let lastName = '';
+
+
+// ============================================================
+//  Small helpers
+// ============================================================
+
+function setResult(elementId, message, kind) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.className = 'result' + (kind ? ' ' + kind : '');
+  el.textContent = message;
+}
+
+// Escape user-supplied text before putting it in innerHTML.
+function esc(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Every request goes through here so auth headers stay consistent.
+function apiRequest(method, path, body, onSuccess, onError) {
+  const xhr = new XMLHttpRequest();
+  xhr.open(method, API_BASE + path, true);
+  xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+
+  if (userId > 0) {
+    xhr.setRequestHeader('Authorization', 'Bearer ' + userId);
+    xhr.setRequestHeader('X-User-Id', userId);
+  }
+
+  xhr.onreadystatechange = function () {
+    if (this.readyState !== 4) return;
+
+    let payload = {};
+    try {
+      payload = JSON.parse(xhr.responseText || '{}');
+    } catch (e) {
+      payload = {};
+    }
+
+    if (xhr.status >= 200 && xhr.status < 300) {
+      onSuccess(payload, xhr.status);
+    } else if (onError) {
+      onError(payload.error || 'Request failed (HTTP ' + xhr.status + ')', xhr.status);
+    }
+  };
+
+  try {
+    xhr.send(body ? JSON.stringify(body) : null);
+  } catch (err) {
+    if (onError) onError(err.message, 0);
+  }
+}
+
+
+// ============================================================
+//  Login page
+// ============================================================
+
+function showPanel(which) {
+  const login = document.getElementById('loginDiv');
+  const register = document.getElementById('registerDiv');
+  if (!login || !register) return;
+  login.style.display = (which === 'login') ? '' : 'none';
+  register.style.display = (which === 'register') ? '' : 'none';
+}
 
 function doLogin() {
   userId = 0;
-  firstName = "";
-  lastName = "";
+  firstName = '';
+  lastName = '';
 
-  let loginInput = document.getElementById("loginName");
-  let passwordInput = document.getElementById("loginPassword");
-  let login = loginInput ? loginInput.value.trim() : "";
-  let password = passwordInput ? passwordInput.value.trim() : "";
+  const login = document.getElementById('loginName').value.trim();
+  const password = document.getElementById('loginPassword').value;
 
-  document.getElementById("loginResult").innerHTML = "";
+  setResult('loginResult', '', '');
 
-  let jsonPayload = JSON.stringify({ login: login, password: password });
-  let url = loginUrlBase;
-
-  let xhr = new XMLHttpRequest();
-  xhr.open("POST", url, true);
-  xhr.setRequestHeader("Content-type", "application/json; charset=UTF-8");
-  try {
-    xhr.onreadystatechange = function () {
-      if (this.readyState === 4) {
-        if (this.status === 200) {
-          let jsonObject = JSON.parse(xhr.responseText);
-          userId = jsonObject.id;
-
-          if (userId < 1) {
-            document.getElementById("loginResult").innerHTML =
-              "<i class='bi bi-exclamation-circle-fill me-1'></i> User/Password combination incorrect";
-            return;
-          }
-
-          firstName = jsonObject.firstName;
-          lastName = jsonObject.lastName;
-
-          saveCookie();
-          window.location.href = "color.html";
-        } else {
-          document.getElementById("loginResult").innerHTML =
-            "<i class='bi bi-exclamation-circle-fill me-1'></i> Login failed";
-        }
-      }
-    };
-    xhr.send(jsonPayload);
-  } catch (err) {
-    document.getElementById("loginResult").innerHTML = err.message;
-  }
-}
-
-function saveCookie() {
-  let minutes = 20;
-  let date = new Date();
-  date.setTime(date.getTime() + minutes * 60 * 1000);
-  document.cookie =
-    "firstName=" +
-    encodeURIComponent(firstName) +
-    ",lastName=" +
-    encodeURIComponent(lastName) +
-    ",userId=" +
-    userId +
-    ";expires=" +
-    date.toGMTString() +
-    ";path=/";
-}
-
-function readCookie() {
-  userId = -1;
-  let data = document.cookie;
-  let splits = data.split(";");
-  for (var i = 0; i < splits.length; i++) {
-    let pair = splits[i].trim();
-    let tokens = pair.split(",");
-    for (var j = 0; j < tokens.length; j++) {
-      let keyVal = tokens[j].trim().split("=");
-      if (keyVal[0] === "firstName") {
-        firstName = decodeURIComponent(keyVal[1] || "");
-      } else if (keyVal[0] === "lastName") {
-        lastName = decodeURIComponent(keyVal[1] || "");
-      } else if (keyVal[0] === "userId") {
-        userId = parseInt(keyVal[1].trim());
-      }
-    }
-  }
-
-  if (userId < 0 || isNaN(userId)) {
-    window.location.href = "index.html";
-  } else {
-    let userNameEl = document.getElementById("userName");
-    if (userNameEl) {
-      userNameEl.innerHTML = `<i class="bi bi-person-circle me-1 text-primary"></i> <span>Logged in as <strong class="text-white">${firstName} ${lastName}</strong></span>`;
-    }
-    searchColor();
-  }
-}
-
-function doLogout() {
-  userId = 0;
-  firstName = "";
-  lastName = "";
-  document.cookie = "firstName=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-  document.cookie = "lastName=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-  document.cookie = "userId=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-  window.location.href = "index.html";
-}
-
-function addColor() {
-  let newColorInput = document.getElementById("colorText");
-  let newColor = newColorInput ? newColorInput.value.trim() : "";
-  let resultEl = document.getElementById("colorAddResult");
-  resultEl.innerHTML = "";
-
-  if (!newColor) {
-    resultEl.className = "text-warning small fw-semibold";
-    resultEl.innerHTML = "<i class='bi bi-exclamation-triangle-fill me-1'></i> Please enter a color name";
+  if (!login || !password) {
+    setResult('loginResult', 'Enter a username and password.', 'warn');
     return;
   }
 
-  let jsonPayload = JSON.stringify({ color: newColor });
-  let url = urlBase;
+  setResult('loginResult', 'Authenticating...', 'ok');
 
-  let xhr = new XMLHttpRequest();
-  xhr.open("POST", url, true);
-  xhr.setRequestHeader("Content-type", "application/json; charset=UTF-8");
-  xhr.setRequestHeader("Authorization", "Bearer " + userId);
-  xhr.setRequestHeader("X-User-Id", userId);
+  apiRequest('POST', '/auth/login', { login: login, password: password },
+    function (data) {
+      userId = parseInt(data.id, 10) || 0;
 
-  try {
-    xhr.onreadystatechange = function () {
-      if (this.readyState === 4) {
-        if (this.status === 201 || this.status === 200) {
-          resultEl.className = "text-success-wcag small fw-semibold";
-          resultEl.innerHTML = "<i class='bi bi-check-circle-fill me-1'></i> Color successfully added!";
-          newColorInput.value = "";
-          searchColor();
-        } else {
-          try {
-            let res = JSON.parse(xhr.responseText);
-            resultEl.className = "text-danger-wcag small fw-semibold";
-            resultEl.innerHTML = res.error || "Failed to add color";
-          } catch (e) {
-            resultEl.className = "text-danger-wcag small fw-semibold";
-            resultEl.innerHTML = "Error adding color";
-          }
-        }
+      if (userId < 1) {
+        setResult('loginResult', 'Username and password do not match.', 'fail');
+        return;
       }
-    };
-    xhr.send(jsonPayload);
-  } catch (err) {
-    resultEl.className = "text-danger-wcag small fw-semibold";
-    resultEl.innerHTML = err.message;
+
+      firstName = data.firstName || '';
+      lastName = data.lastName || '';
+      saveCookie();
+      window.location.href = 'contacts.html';
+    },
+    function (message, status) {
+      if (status === 401) {
+        setResult('loginResult', 'Username and password do not match.', 'fail');
+      } else {
+        setResult('loginResult', message, 'fail');
+      }
+    }
+  );
+}
+
+function doRegister() {
+  const username = document.getElementById('regUsername').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const first = document.getElementById('regFirstName').value.trim();
+  const last = document.getElementById('regLastName').value.trim();
+
+  if (!username || !password) {
+    setResult('registerResult', 'A username and password are required.', 'warn');
+    return;
+  }
+
+  setResult('registerResult', 'Creating account...', 'ok');
+
+  apiRequest('POST', '/auth/register',
+    { username: username, password: password, first_name: first, last_name: last },
+    function () {
+      setResult('registerResult', 'Account created. Sign in to continue.', 'ok');
+      document.getElementById('registerForm').reset();
+      setTimeout(function () {
+        showPanel('login');
+        document.getElementById('loginName').value = username;
+        document.getElementById('loginPassword').focus();
+      }, 900);
+    },
+    function (message) {
+      setResult('registerResult', message, 'fail');
+    }
+  );
+}
+
+
+// ============================================================
+//  Session cookie
+// ============================================================
+
+function saveCookie() {
+  const minutes = 20;
+  const expires = new Date(Date.now() + minutes * 60 * 1000).toUTCString();
+  const path = ';expires=' + expires + ';path=/';
+
+  document.cookie = 'firstName=' + encodeURIComponent(firstName) + path;
+  document.cookie = 'lastName=' + encodeURIComponent(lastName) + path;
+  document.cookie = 'userId=' + userId + path;
+}
+
+function readCookie() {
+  userId = 0;
+  firstName = '';
+  lastName = '';
+
+  document.cookie.split(';').forEach(function (pair) {
+    const idx = pair.indexOf('=');
+    if (idx < 0) return;
+    const key = pair.slice(0, idx).trim();
+    const val = pair.slice(idx + 1).trim();
+
+    if (key === 'firstName') firstName = decodeURIComponent(val);
+    else if (key === 'lastName') lastName = decodeURIComponent(val);
+    else if (key === 'userId') userId = parseInt(val, 10) || 0;
+  });
+
+  if (userId < 1) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  const nameEl = document.getElementById('userName');
+  if (nameEl) {
+    const display = (firstName + ' ' + lastName).trim() || 'user #' + userId;
+    nameEl.innerHTML = 'Logged in as <strong>' + esc(display) + '</strong>';
+  }
+
+  loadContacts();
+}
+
+function doLogout() {
+  const expired = '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  document.cookie = 'firstName' + expired;
+  document.cookie = 'lastName' + expired;
+  document.cookie = 'userId' + expired;
+
+  userId = 0;
+  firstName = '';
+  lastName = '';
+  window.location.href = 'index.html';
+}
+
+
+// ============================================================
+//  Contacts: read
+// ============================================================
+
+function loadContacts() {
+  apiRequest('GET', '/contacts/getAllContacts', null,
+    function (data) {
+      renderContacts(data.contacts || []);
+      setResult('searchResult', '', '');
+    },
+    function (message) {
+      renderContacts([]);
+      setResult('searchResult', message, 'fail');
+    }
+  );
+}
+
+function searchContacts() {
+  const term = document.getElementById('searchText').value.trim();
+
+  if (!term) {
+    loadContacts();
+    return;
+  }
+
+  apiRequest('GET', '/contacts/getContactsByQuery?q=' + encodeURIComponent(term), null,
+    function (data) {
+      const rows = data.contacts || [];
+      renderContacts(rows);
+      setResult('searchResult',
+        rows.length + (rows.length === 1 ? ' match' : ' matches') + ' for "' + term + '"',
+        'ok');
+    },
+    function (message) {
+      renderContacts([]);
+      setResult('searchResult', message, 'fail');
+    }
+  );
+}
+
+function clearSearch() {
+  document.getElementById('searchText').value = '';
+  loadContacts();
+}
+
+function renderContacts(contacts) {
+  const tbody = document.getElementById('contactList');
+  const counter = document.getElementById('contactCount');
+  if (!tbody) return;
+
+  if (counter) {
+    counter.textContent = contacts.length + (contacts.length === 1 ? ' row' : ' rows');
+  }
+
+  if (contacts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No contacts yet. Add one below.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  contacts.forEach(function (c) {
+    html +=
+      '<tr>' +
+        '<td>' + esc(c.firstName) + '</td>' +
+        '<td>' + esc(c.lastName) + '</td>' +
+        '<td>' + esc(c.email) + '</td>' +
+        '<td>' + esc(c.phone) + '</td>' +
+        '<td><div class="row-actions">' +
+          '<button type="button" class="ghost" onclick="startEdit(' + c.id + ');">EDIT</button>' +
+          '<button type="button" class="danger" onclick="deleteContact(' + c.id + ');">DELETE</button>' +
+        '</div></td>' +
+      '</tr>';
+  });
+
+  tbody.innerHTML = html;
+}
+
+
+// ============================================================
+//  Contacts: create / update
+// ============================================================
+
+function submitContact() {
+  const editingId = document.getElementById('editingId').value;
+
+  const payload = {
+    first_name: document.getElementById('contactFirstName').value.trim(),
+    last_name:  document.getElementById('contactLastName').value.trim(),
+    email:      document.getElementById('contactEmail').value.trim(),
+    phone:      document.getElementById('contactPhone').value.trim()
+  };
+
+  if (!payload.first_name) {
+    setResult('contactResult', 'A first name is required.', 'warn');
+    return;
+  }
+  if (!payload.phone) {
+    setResult('contactResult', 'A phone number is required.', 'warn');
+    return;
+  }
+
+  if (editingId) {
+    apiRequest('PUT', '/contacts/updateContactById?id=' + encodeURIComponent(editingId), payload,
+      function () {
+        setResult('contactResult', 'Contact updated.', 'ok');
+        cancelEdit();
+        loadContacts();
+      },
+      function (message) {
+        setResult('contactResult', message, 'fail');
+      }
+    );
+  } else {
+    apiRequest('POST', '/contacts/createContact', payload,
+      function () {
+        setResult('contactResult', 'Contact added.', 'ok');
+        document.getElementById('contactForm').reset();
+        document.getElementById('editingId').value = '';
+        loadContacts();
+      },
+      function (message) {
+        setResult('contactResult', message, 'fail');
+      }
+    );
   }
 }
 
-function searchColor() {
-  let srchInput = document.getElementById("searchText");
-  let srch = srchInput ? srchInput.value.trim() : "";
-  let resultSpan = document.getElementById("colorSearchResult");
-  resultSpan.innerHTML = "";
+function startEdit(id) {
+  apiRequest('GET', '/contacts/getContactById?id=' + encodeURIComponent(id), null,
+    function (c) {
+      document.getElementById('editingId').value = c.id;
+      document.getElementById('contactFirstName').value = c.firstName || '';
+      document.getElementById('contactLastName').value = c.lastName || '';
+      document.getElementById('contactEmail').value = c.email || '';
+      document.getElementById('contactPhone').value = c.phone || '';
 
-  let url = urlBase + (srch ? ("?q=" + encodeURIComponent(srch)) : "");
+      document.getElementById('formHeading').textContent = 'Edit contact';
+      document.getElementById('formMode').textContent = 'UPDATE Contacts SET ...';
+      document.getElementById('submitContactButton').textContent = 'UPDATE CONTACT';
+      document.getElementById('cancelEditButton').style.display = '';
 
-  let xhr = new XMLHttpRequest();
-  xhr.open("GET", url, true);
-  xhr.setRequestHeader("Authorization", "Bearer " + userId);
-  xhr.setRequestHeader("X-User-Id", userId);
-
-  try {
-    xhr.onreadystatechange = function () {
-      if (this.readyState === 4 && this.status === 200) {
-        resultSpan.innerHTML = "<i class='bi bi-check-circle me-1'></i> Results updated";
-        let jsonObject = JSON.parse(xhr.responseText);
-        let targetP = document.getElementById("colorList") || document.getElementsByTagName("p")[0];
-
-        let colors = jsonObject.colors || [];
-        if (colors.length === 0 && Array.isArray(jsonObject.results) && jsonObject.results.length > 0) {
-          colors = jsonObject.results.map(name => ({ id: null, name: name }));
-        }
-
-        if (colors.length === 0 || jsonObject.error === "No Records Found") {
-          if (targetP) targetP.innerHTML = `<div class="text-secondary-contrast small italic py-2"><i class="bi bi-info-circle me-1"></i> No matching colors found.</div>`;
-          return;
-        }
-
-        let colorList = "";
-        for (let i = 0; i < colors.length; i++) {
-          let c = colors[i];
-          let colorName = typeof c === 'string' ? c : c.name;
-          let colorId = (typeof c === 'object' && c.id) ? c.id : null;
-
-          colorList += `<span class="badge rounded-pill bg-dark-subtle text-body border border-secondary px-3 py-2 fs-6 shadow-sm d-inline-flex align-items-center me-2 mb-2">
-            <span class="d-inline-block rounded-circle me-2 border" style="width: 14px; height: 14px; background-color: ${colorName};"></span>
-            <span class="me-2">${colorName}</span>
-            <button type="button" class="btn-close btn-close-white" style="font-size: 0.65rem;" onclick="deleteColor(${colorId ? colorId : `'${colorName.replace(/'/g, "\\'")}'`});" title="Delete Color"></button>
-          </span>`;
-        }
-
-        if (targetP) {
-          targetP.innerHTML = colorList;
-        }
-      }
-    };
-    xhr.send();
-  } catch (err) {
-    resultSpan.innerHTML = err.message;
-  }
+      setResult('contactResult', '', '');
+      document.getElementById('contactFirstName').focus();
+      document.getElementById('contactForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+    function (message) {
+      setResult('contactResult', message, 'fail');
+    }
+  );
 }
 
-function deleteColor(identifier) {
-  if (!identifier && identifier !== 0) return;
-
-  let param = (typeof identifier === 'number') ? ("id=" + identifier) : ("name=" + encodeURIComponent(identifier));
-  let url = urlBase + "?" + param;
-
-  let xhr = new XMLHttpRequest();
-  xhr.open("DELETE", url, true);
-  xhr.setRequestHeader("Authorization", "Bearer " + userId);
-  xhr.setRequestHeader("X-User-Id", userId);
-
-  try {
-    xhr.onreadystatechange = function () {
-      if (this.readyState === 4 && this.status === 200) {
-        searchColor();
-      }
-    };
-    xhr.send();
-  } catch (err) {
-    console.error(err);
-  }
+function cancelEdit() {
+  document.getElementById('contactForm').reset();
+  document.getElementById('editingId').value = '';
+  document.getElementById('formHeading').textContent = 'Add a contact';
+  document.getElementById('formMode').textContent = 'INSERT INTO Contacts';
+  document.getElementById('submitContactButton').textContent = 'SAVE CONTACT';
+  document.getElementById('cancelEditButton').style.display = 'none';
 }
+
+
+// ============================================================
+//  Contacts: delete
+// ============================================================
+
+function deleteContact(id) {
+  if (!window.confirm('Delete this contact? This cannot be undone.')) return;
+
+  apiRequest('DELETE', '/contacts/deleteContactById?id=' + encodeURIComponent(id), null,
+    function () {
+      setResult('contactResult', 'Contact deleted.', 'ok');
+      loadContacts();
+    },
+    function (message) {
+      setResult('contactResult', message, 'fail');
+    }
+  );
+}
+
+
+// ============================================================
+//  Background: Matrix digital rain
+// ============================================================
+
+(function () {
+  const canvas = document.getElementById('rain');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const glyphs = ('アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン' +
+                  '0123456789ABCDEFXYZ$+-*/=<>').split('');
+  const fontSize = 16;
+  let drops = [];
+  let raf = null;
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+    const columns = Math.ceil(window.innerWidth / fontSize);
+    drops = [];
+    for (let i = 0; i < columns; i++) {
+      drops[i] = Math.random() * -60;
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.07)';
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.font = fontSize + 'px "JetBrains Mono", monospace';
+    ctx.textBaseline = 'top';
+
+    for (let i = 0; i < drops.length; i++) {
+      const ch = glyphs[(Math.random() * glyphs.length) | 0];
+      const y = drops[i] * fontSize;
+
+      ctx.fillStyle = Math.random() > 0.94 ? '#d8ffe2' : '#00b32e';
+      ctx.fillText(ch, i * fontSize, y);
+
+      if (y > window.innerHeight && Math.random() > 0.975) drops[i] = 0;
+      drops[i] += 0.55;
+    }
+    raf = requestAnimationFrame(draw);
+  }
+
+  function still() {
+    ctx.font = fontSize + 'px "JetBrains Mono", monospace';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(0, 120, 30, 0.3)';
+    for (let x = 0; x < window.innerWidth; x += fontSize) {
+      for (let y = 0; y < window.innerHeight; y += fontSize * 1.4) {
+        if (Math.random() > 0.84) {
+          ctx.fillText(glyphs[(Math.random() * glyphs.length) | 0], x, y);
+        }
+      }
+    }
+  }
+
+  function start() {
+    resize();
+    if (reduced) still(); else draw();
+  }
+
+  start();
+
+  window.addEventListener('resize', function () {
+    if (raf) cancelAnimationFrame(raf);
+    start();
+  });
+})();

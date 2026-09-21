@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contacts &mdash; COP 4331</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+<link rel="alternate icon" href="favicon.ico">
+
+<link href="css/styles.css" rel="stylesheet">
+
+<script type="text/javascript" src="js/code.js"></script>
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function () {
+    readCookie();
+  }, false);
+</script>
+</head>
+
+<body>
+
+<canvas id="rain" aria-hidden="true"></canvas>
+
+<main class="wide">
+
+  <div class="topbar">
+    <h1 id="title">Contacts Manager</h1>
+    <div class="btn-row">
+      <span class="whoami" id="userName"></span>
+      <button type="button" id="logoutButton" class="ghost" onclick="doLogout();">LOG OUT</button>
+    </div>
+  </div>
+
+  <!-- ========== SEARCH + LIST ========== -->
+  <div class="terminal">
+    <div class="titlebar">
+      <span>SELECT * FROM Contacts</span>
+      <span class="status" id="contactCount">&mdash;</span>
+    </div>
+
+    <div class="pad">
+      <label for="searchText">Search by first name</label>
+      <div class="field">
+        <span class="prompt">&gt;</span>
+        <input type="text" id="searchText" placeholder="leave blank to show all"
+               onkeyup="if(event.key === 'Enter') searchContacts();">
+      </div>
+
+      <div class="btn-row">
+        <button type="button" id="searchButton" onclick="searchContacts();">SEARCH</button>
+        <button type="button" class="ghost" onclick="clearSearch();">SHOW ALL</button>
+      </div>
+
+      <span id="searchResult" class="result"></span>
+
+      <div class="table-wrap" style="margin-top:18px;">
+        <table>
+          <thead>
+            <tr>
+              <th>First</th>
+              <th>Last</th>
+              <th>E-mail</th>
+              <th>Phone</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="contactList">
+            <tr><td colspan="5" class="empty">Loading&hellip;</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== ADD / EDIT ========== -->
+  <div class="terminal">
+    <div class="titlebar">
+      <span id="formMode">INSERT INTO Contacts</span>
+      <span class="status">&nbsp;</span>
+    </div>
+
+    <div class="pad">
+      <h2 id="formHeading">Add a contact</h2>
+
+      <form id="contactForm" onsubmit="event.preventDefault(); submitContact();">
+        <input type="hidden" id="editingId" value="">
+
+        <div class="grid2">
+          <div>
+            <label for="contactFirstName">First name (required)</label>
+            <div class="field">
+              <span class="prompt">&gt;</span>
+              <input type="text" id="contactFirstName" placeholder="first name" required>
+            </div>
+          </div>
+          <div>
+            <label for="contactLastName">Last name</label>
+            <div class="field">
+              <span class="prompt">&gt;</span>
+              <input type="text" id="contactLastName" placeholder="last name">
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <label for="contactEmail">E-mail address</label>
+            <div class="field">
+              <span class="prompt">&gt;</span>
+              <input type="email" id="contactEmail" placeholder="name@example.com">
+            </div>
+          </div>
+          <div>
+            <label for="contactPhone">Phone number (required)</label>
+            <div class="field">
+              <span class="prompt">&gt;</span>
+              <input type="tel" id="contactPhone" placeholder="407-555-0100" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="submit" id="submitContactButton">SAVE CONTACT</button>
+          <button type="button" id="cancelEditButton" class="ghost"
+                  style="display:none;" onclick="cancelEdit();">CANCEL</button>
+        </div>
+      </form>
+
+      <span id="contactResult" class="result"></span>
+    </div>
+  </div>
+
+  <p class="footnote">University of Central Florida &middot; COP 4331 &middot; Contacts Manager</p>
+
+</main>
+
+</body>
+</html>
