@@ -10,9 +10,13 @@ const API_BASE =
     ? '/api'
     : 'https://contacts.najoalan.xyz/api';
 
+// Client-side minimum only. The API does not enforce a length.
+const MIN_PASSWORD_LENGTH = 6;
+
 let userId = 0;
 let firstName = '';
 let lastName = '';
+let isAdmin = false;
 
 
 // ============================================================
@@ -34,6 +38,17 @@ function esc(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// An admin can disable an account mid-session. Every endpoint then returns 403,
+// so the session is dead and the only sensible move is to sign the user out.
+function handleDisabledAccount() {
+  clearSession();
+  try {
+    window.sessionStorage.setItem(
+      'signOutReason', 'This account has been disabled by an administrator.');
+  } catch (e) { /* storage unavailable, fall through to a plain redirect */ }
+  window.location.href = 'index.html';
 }
 
 // Every request goes through here so auth headers stay consistent.
@@ -59,7 +74,16 @@ function apiRequest(method, path, body, onSuccess, onError) {
 
     if (xhr.status >= 200 && xhr.status < 300) {
       onSuccess(payload, xhr.status);
-    } else if (onError) {
+      return;
+    }
+
+    // 403 from requireEnabledUser() means this account was switched off.
+    if (xhr.status === 403 && userId > 0) {
+      handleDisabledAccount();
+      return;
+    }
+
+    if (onError) {
       onError(payload.error || 'Request failed (HTTP ' + xhr.status + ')', xhr.status);
     }
   };
@@ -75,6 +99,16 @@ function apiRequest(method, path, body, onSuccess, onError) {
 // ============================================================
 //  Login page
 // ============================================================
+
+function initLoginPage() {
+  let reason = '';
+  try {
+    reason = window.sessionStorage.getItem('signOutReason') || '';
+    window.sessionStorage.removeItem('signOutReason');
+  } catch (e) { /* ignore */ }
+
+  if (reason) setResult('loginResult', reason, 'fail');
+}
 
 function showPanel(which) {
   const login = document.getElementById('loginDiv');
@@ -116,7 +150,10 @@ function doLogin() {
       window.location.href = 'contacts.html';
     },
     function (message, status) {
-      if (status === 401) {
+      if (status === 403) {
+        // Disabled account: the API's own wording is the clearest thing to show.
+        setResult('loginResult', message || 'This account has been disabled.', 'fail');
+      } else if (status === 401) {
         setResult('loginResult', 'Username and password do not match.', 'fail');
       } else {
         setResult('loginResult', message, 'fail');
@@ -170,6 +207,8 @@ function saveCookie() {
   document.cookie = 'userId=' + userId + path;
 }
 
+// Parses the session cookie. Redirects to the login page and returns false
+// when there is no usable session.
 function readCookie() {
   userId = 0;
   firstName = '';
@@ -188,7 +227,7 @@ function readCookie() {
 
   if (userId < 1) {
     window.location.href = 'index.html';
-    return;
+    return false;
   }
 
   const nameEl = document.getElementById('userName');
@@ -197,10 +236,10 @@ function readCookie() {
     nameEl.innerHTML = 'Logged in as <strong>' + esc(display) + '</strong>';
   }
 
-  loadContacts();
+  return true;
 }
 
-function doLogout() {
+function clearSession() {
   const expired = '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
   document.cookie = 'firstName' + expired;
   document.cookie = 'lastName' + expired;
@@ -209,7 +248,47 @@ function doLogout() {
   userId = 0;
   firstName = '';
   lastName = '';
+  isAdmin = false;
+}
+
+function doLogout() {
+  clearSession();
   window.location.href = 'index.html';
+}
+
+
+// ============================================================
+//  Page initialisers
+// ============================================================
+
+function initContactsPage() {
+  if (!readCookie()) return;
+  loadContacts();
+  checkAdminAccess(function (admin) {
+    const link = document.getElementById('adminLink');
+    if (link && admin) link.style.display = '';
+  });
+}
+
+function initAdminPage() {
+  if (!readCookie()) return;
+  loadUsers();
+}
+
+// login.php does not return the user's role, so the only way to tell whether
+// this account is an admin is to ask an admin-only endpoint and read the status.
+// 200 = admin, 401 = standard user.
+function checkAdminAccess(callback) {
+  apiRequest('GET', '/users/getAllUsers', null,
+    function () {
+      isAdmin = true;
+      callback(true);
+    },
+    function (message, status) {
+      isAdmin = false;
+      callback(false, status);
+    }
+  );
 }
 
 
@@ -292,7 +371,7 @@ function renderContacts(contacts) {
 
 
 // ============================================================
-//  Contacts: create / update
+//  Contacts: create / update / delete
 // ============================================================
 
 function submitContact() {
@@ -373,11 +452,6 @@ function cancelEdit() {
   document.getElementById('cancelEditButton').style.display = 'none';
 }
 
-
-// ============================================================
-//  Contacts: delete
-// ============================================================
-
 function deleteContact(id) {
   if (!window.confirm('Delete this contact? This cannot be undone.')) return;
 
@@ -388,6 +462,174 @@ function deleteContact(id) {
     },
     function (message) {
       setResult('contactResult', message, 'fail');
+    }
+  );
+}
+
+
+// ============================================================
+//  Admin: user list
+// ============================================================
+
+function loadUsers() {
+  apiRequest('GET', '/users/getAllUsers', null,
+    function (data) {
+      isAdmin = true;
+      document.getElementById('adminPanel').style.display = '';
+      document.getElementById('notAdminNotice').style.display = 'none';
+      renderUsers(data.users || []);
+      setResult('userResult', '', '');
+    },
+    function (message, status) {
+      if (status === 401) {
+        // Signed in, but not an administrator.
+        isAdmin = false;
+        document.getElementById('adminPanel').style.display = 'none';
+        document.getElementById('resetPanel').style.display = 'none';
+        document.getElementById('notAdminNotice').style.display = '';
+        return;
+      }
+      document.getElementById('adminPanel').style.display = '';
+      renderUsers([]);
+      setResult('userResult', message, 'fail');
+    }
+  );
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById('userList');
+  const counter = document.getElementById('userCount');
+  if (!tbody) return;
+
+  if (counter) {
+    counter.textContent = users.length + (users.length === 1 ? ' user' : ' users');
+  }
+
+  if (users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No users found.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  users.forEach(function (u) {
+    const name = ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || '&mdash;';
+    const enabled = Number(u.isEnabled) === 1;
+    const admin = String(u.role) === 'admin';
+    const self = u.isSelf === true;
+
+    const statusBadge = enabled
+      ? '<span class="badge on">ENABLED</span>'
+      : '<span class="badge off">DISABLED</span>';
+
+    const roleBadge = '<span class="badge role' + (admin ? ' admin' : '') + '">' +
+      esc(String(u.role || 'user').toUpperCase()) + '</span>';
+
+    // The API refuses to change your own status, so the button is locked here too.
+    const toggleLabel = enabled ? 'DISABLE' : 'ENABLE';
+    const toggleClass = enabled ? 'danger' : 'ghost';
+    const toggle = self
+      ? '<button type="button" class="ghost" disabled>' + toggleLabel + '</button>'
+      : '<button type="button" class="' + toggleClass + '" onclick="toggleUserStatus(' +
+        u.id + ', ' + (enabled ? 0 : 1) + ');">' + toggleLabel + '</button>';
+
+    html +=
+      '<tr' + (self ? ' class="is-self"' : '') + '>' +
+        '<td>' + esc(name) + (self ? '<span class="self-tag">YOU</span>' : '') + '</td>' +
+        '<td>' + esc(u.login) + '</td>' +
+        '<td>' + roleBadge + '</td>' +
+        '<td>' + esc(u.contactCount) + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td><div class="row-actions">' +
+          toggle +
+          '<button type="button" class="ghost" onclick="startPasswordReset(' + u.id +
+            ', \'' + esc(u.login).replace(/'/g, "\\'") + '\');">RESET PW</button>' +
+        '</div></td>' +
+      '</tr>';
+  });
+
+  tbody.innerHTML = html;
+}
+
+
+// ============================================================
+//  Admin: enable / disable an account
+// ============================================================
+
+function toggleUserStatus(id, nextValue) {
+  const turningOff = Number(nextValue) === 0;
+
+  if (turningOff && !window.confirm(
+      'Disable this account? The user will be signed out and blocked from ' +
+      'logging in until the account is enabled again. Their contacts are kept.')) {
+    return;
+  }
+
+  apiRequest('PUT', '/users/updateUserStatusById?id=' + encodeURIComponent(id),
+    { isEnabled: nextValue },
+    function (data) {
+      setResult('userResult', data.message || 'Status updated.', 'ok');
+      loadUsers();
+    },
+    function (message) {
+      setResult('userResult', message, 'fail');
+    }
+  );
+}
+
+
+// ============================================================
+//  Admin: reset another user's password
+// ============================================================
+
+function startPasswordReset(id, login) {
+  document.getElementById('resetUserId').value = id;
+  document.getElementById('resetHeading').textContent =
+    'Set a new password for ' + login;
+  document.getElementById('resetPanel').style.display = '';
+  document.getElementById('resetForm').reset();
+  document.getElementById('resetUserId').value = id;
+
+  setResult('resetResult', '', '');
+  document.getElementById('newPassword').focus();
+  document.getElementById('resetPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelPasswordReset() {
+  document.getElementById('resetForm').reset();
+  document.getElementById('resetUserId').value = '';
+  document.getElementById('resetPanel').style.display = 'none';
+  setResult('resetResult', '', '');
+}
+
+function submitPasswordReset() {
+  const id = document.getElementById('resetUserId').value;
+  const password = document.getElementById('newPassword').value;
+  const confirm = document.getElementById('confirmPassword').value;
+
+  if (!id) {
+    setResult('resetResult', 'No user selected.', 'warn');
+    return;
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    setResult('resetResult',
+      'Use at least ' + MIN_PASSWORD_LENGTH + ' characters.', 'warn');
+    return;
+  }
+  if (password !== confirm) {
+    setResult('resetResult', 'The two passwords do not match.', 'warn');
+    return;
+  }
+
+  setResult('resetResult', 'Saving...', 'ok');
+
+  apiRequest('PUT', '/auth/changePassword?id=' + encodeURIComponent(id),
+    { password: password },
+    function () {
+      setResult('userResult', 'Password updated.', 'ok');
+      cancelPasswordReset();
+    },
+    function (message) {
+      setResult('resetResult', message, 'fail');
     }
   );
 }
