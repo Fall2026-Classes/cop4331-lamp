@@ -30,6 +30,7 @@ CREATE TABLE `Users` (
     `Login`       VARCHAR(50)   NOT NULL,
     `Password`    VARCHAR(255)  NOT NULL DEFAULT '',
     `UserRole`    ENUM('user','admin') NOT NULL DEFAULT 'user',
+    `IsEnabled`   TINYINT(1)    NOT NULL DEFAULT 1,
     `DateCreated` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `DateUpdated` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
                                 ON UPDATE CURRENT_TIMESTAMP,

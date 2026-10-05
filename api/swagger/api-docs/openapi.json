@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Contacts Manager API",
-    "description": "LAMP-stack contacts manager. The health check, login, and register endpoints require no authentication. All other endpoints require an Authorization header (Bearer token, where the token is the user's numeric ID returned at login). Admin users can view all contacts but cannot create, update, or delete them. Admin users are also the only ones who can change a user's password or register new admin accounts.",
-    "version": "1.2.0"
+    "description": "LAMP-stack contacts manager. The health check, login, and register endpoints require no authentication. All other endpoints require an Authorization header (Bearer token, where the token is the user's numeric ID returned at login). Admin users can view all contacts but cannot create, update, or delete them. Admin users are also the only ones who can change a user's password, register new admin accounts, list all users, or enable/disable user accounts. A disabled account (IsEnabled = 0) cannot log in, and any authenticated request made with its token is rejected with 403.",
+    "version": "1.3.0"
   },
   "servers": [
     {
@@ -14,7 +14,8 @@
   "tags": [
     { "name": "Health", "description": "Service status" },
     { "name": "Auth", "description": "Authentication and account endpoints" },
-    { "name": "Contacts", "description": "CRUD operations on contacts" }
+    { "name": "Contacts", "description": "CRUD operations on contacts" },
+    { "name": "Users", "description": "Admin-only user management" }
   ],
   "paths": {
     "/echo/debug": {
@@ -101,6 +102,22 @@
                     "firstName": { "type": "string", "example": "" },
                     "lastName": { "type": "string", "example": "" },
                     "error": { "type": "string", "example": "No Records Found" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Credentials are correct but the account has been disabled by an admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer", "example": 0 },
+                    "firstName": { "type": "string", "example": "" },
+                    "lastName": { "type": "string", "example": "" },
+                    "error": { "type": "string", "example": "This account has been disabled" }
                   }
                 }
               }
@@ -201,6 +218,7 @@
               }
             }
           },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
           "405": { "$ref": "#/components/responses/MethodNotAllowed" }
         }
       }
@@ -261,6 +279,7 @@
               }
             }
           },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
           "405": { "$ref": "#/components/responses/MethodNotAllowed" }
         }
       }
@@ -288,6 +307,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
           "405": { "$ref": "#/components/responses/MethodNotAllowed" }
         }
       }
@@ -312,6 +332,7 @@
           "400": { "$ref": "#/components/responses/BadRequestId" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
           "405": { "$ref": "#/components/responses/MethodNotAllowed" }
         }
       }
@@ -357,6 +378,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
           "405": { "$ref": "#/components/responses/MethodNotAllowed" }
         }
       }
@@ -399,6 +421,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/AdminForbidden" },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
           "405": { "$ref": "#/components/responses/MethodNotAllowed" }
         }
       }
@@ -434,6 +457,7 @@
           "400": { "$ref": "#/components/responses/BadRequestId" },
           "401": { "$ref": "#/components/responses/AdminForbidden" },
           "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
           "405": { "$ref": "#/components/responses/MethodNotAllowed" }
         }
       }
@@ -461,6 +485,117 @@
           "400": { "$ref": "#/components/responses/BadRequestId" },
           "401": { "$ref": "#/components/responses/AdminForbidden" },
           "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/users/getAllUsers": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List all users",
+        "description": "Admin-only. Returns every user with their role, enabled status, and contact count, sorted by last name then first name. Passwords are never returned. Use `isEnabled` as the initial state of an enable/disable toggle and flip it with /users/updateUserStatusById. `isSelf` marks the caller's own row, which that endpoint will not let you change.",
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/User" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid authentication, or the authenticated user is not an admin",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "unauthenticated": { "value": { "error": "Unauthorized" } },
+                  "notAdmin": { "value": { "error": "Unauthorized, standard users cannot view users" } }
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" }
+        }
+      }
+    },
+    "/users/updateUserStatusById": {
+      "put": {
+        "tags": ["Users"],
+        "summary": "Enable or disable a user",
+        "description": "Admin-only. Sets IsEnabled for the user identified by the `id` query parameter. A disabled user cannot log in and every authenticated request they make returns 403. Admins cannot change the status of their own account.",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserStatusInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "User disabled successfully" },
+                    "id": { "type": "integer", "example": 2 },
+                    "isEnabled": { "type": "integer", "enum": [0, 1], "example": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id, invalid isEnabled value, or the admin tried to change their own account",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "badId": { "value": { "error": "A valid id is required, example api/endpoint?id=1" } },
+                  "badValue": { "value": { "error": "A valid isEnabled value is required: {\"isEnabled\": 1} or {\"isEnabled\": 0}" } },
+                  "self": { "value": { "error": "You cannot change the status of your own account" } }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid authentication, or the authenticated user is not an admin",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "unauthenticated": { "value": { "error": "Unauthorized" } },
+                  "notAdmin": { "value": { "error": "Unauthorized, standard users cannot change user status" } }
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/AccountDisabled" },
+          "404": {
+            "description": "No user matches that ID",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "User not found" }
+              }
+            }
+          },
           "405": { "$ref": "#/components/responses/MethodNotAllowed" }
         }
       }
@@ -486,7 +621,7 @@
         "name": "id",
         "in": "query",
         "required": true,
-        "description": "The numeric ID of the user whose password is being changed.",
+        "description": "The numeric ID of the target user (the user being modified, not the caller).",
         "schema": { "type": "integer", "minimum": 1 }
       }
     },
@@ -530,6 +665,28 @@
           "last_name": { "type": "string" }
         },
         "required": ["username", "password"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 2 },
+          "firstName": { "type": "string", "example": "Sam" },
+          "lastName": { "type": "string", "example": "Hill" },
+          "login": { "type": "string", "example": "SamH" },
+          "role": { "type": "string", "enum": ["user", "admin"], "example": "user" },
+          "isEnabled": { "type": "integer", "enum": [0, 1], "description": "1 = enabled, 0 = disabled", "example": 1 },
+          "dateCreated": { "type": "string", "example": "2026-10-05 14:00:00" },
+          "dateUpdated": { "type": "string", "example": "2026-10-05 14:00:00" },
+          "contactCount": { "type": "integer", "example": 2 },
+          "isSelf": { "type": "boolean", "description": "True for the requesting admin's own row", "example": false }
+        }
+      },
+      "UserStatusInput": {
+        "type": "object",
+        "required": ["isEnabled"],
+        "properties": {
+          "isEnabled": { "type": "integer", "enum": [0, 1], "description": "1 to enable, 0 to disable. true/false are also accepted.", "example": 0 }
+        }
       },
       "Error": {
         "type": "object",
@@ -581,6 +738,15 @@
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
             "example": { "error": "Contact not found" }
+          }
+        }
+      },
+      "AccountDisabled": {
+        "description": "The authenticated user's account has been disabled (IsEnabled = 0)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Forbidden, this account has been disabled" }
           }
         }
       }
