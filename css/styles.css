@@ -326,3 +326,80 @@ tbody tr:hover td{background:rgba(0,255,65,.045);}
   .caret{animation:none;}
   body::after{background:none;}
 }
+
+/* ============================================================
+   Admin console — user management
+   ============================================================ */
+
+.badge{
+  display:inline-block;
+  padding:4px 10px;
+  border:1px solid currentColor;
+  border-radius:4px;
+  font-size:.66rem;
+  font-weight:700;
+  letter-spacing:.08em;
+  white-space:nowrap;
+}
+
+.badge.on{color:var(--phosphor);}
+.badge.off{color:var(--warn);}
+.badge.role{color:var(--phosphor-dim);}
+.badge.role.admin{color:var(--warn);}
+
+/* the admin's own row — actions are locked server-side too */
+tbody tr.is-self td{background:rgba(0,255,65,.05);}
+
+.self-tag{
+  margin-left:8px;
+  font-size:.64rem;
+  color:var(--phosphor-dim);
+  letter-spacing:.06em;
+}
+
+button:disabled,
+button:disabled:hover{
+  opacity:.4;
+  cursor:not-allowed;
+  background:transparent;
+  color:var(--phosphor-dim);
+  border-color:var(--phosphor-deep);
+  box-shadow:none;
+  transform:none;
+}
+
+.nav-link{
+  display:inline-block;
+  padding:8px 14px;
+  border:1px solid var(--phosphor-deep);
+  color:var(--phosphor-dim);
+  font-size:.7rem;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-decoration:none;
+  transition:border-color .12s, color .12s;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible{
+  border-color:var(--phosphor);
+  color:var(--phosphor);
+  outline:none;
+}
+
+.notice{
+  margin:0 0 20px;
+  padding:14px 18px;
+  border:1px solid var(--phosphor-deep);
+  background:rgba(0,255,65,.05);
+  font-size:.74rem;
+  font-weight:300;
+  color:var(--phosphor-dim);
+  line-height:1.5;
+}
+
+.notice.warn{
+  border-color:rgba(255,209,102,.4);
+  background:rgba(255,209,102,.06);
+  color:var(--warn);
+}
