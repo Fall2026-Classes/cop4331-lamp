@@ -47,7 +47,7 @@
       "post": {
         "tags": ["Auth"],
         "summary": "Log in",
-        "description": "Authenticates a user with a login and password (matched as an exact, case-sensitive string against the stored password — there is no hashing). Returns the numeric user ID as a bearer token on success.",
+        "description": "Authenticates a user with a login and password. Passwords are stored salted and hashed (bcrypt via PHP password_hash) and checked with password_verify. Accounts still holding a legacy plaintext password are accepted once and automatically re-saved as a hash. Returns the numeric user ID as a bearer token on success.",
         "security": [],
         "requestBody": {
           "required": true,
