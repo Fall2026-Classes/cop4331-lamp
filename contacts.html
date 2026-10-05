@@ -17,7 +17,7 @@
 <script type="text/javascript" src="js/code.js"></script>
 <script type="text/javascript">
   document.addEventListener('DOMContentLoaded', function () {
-    readCookie();
+    initContactsPage();
   }, false);
 </script>
 </head>
@@ -32,6 +32,7 @@
     <h1 id="title">Contacts Manager</h1>
     <div class="btn-row">
       <span class="whoami" id="userName"></span>
+      <a href="admin.html" class="nav-link" id="adminLink" style="display:none;">ADMIN</a>
       <button type="button" id="logoutButton" class="ghost" onclick="doLogout();">LOG OUT</button>
     </div>
   </div>
